@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AGENTWATCH — HUD preview</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      background: #0d1424;
+    }
+
+    .preview-stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #33445e;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .preview-bar {
+      position: fixed;
+      left: 50%;
+      bottom: 10px;
+      z-index: 20;
+      display: flex;
+      gap: 6px;
+      transform: translateX(-50%);
+      pointer-events: auto;
+    }
+
+    .preview-bar button {
+      padding: 4px 10px;
+      color: #dbe4f2;
+      background: #0d1626;
+      border: 2px solid #9fb4d0;
+      border-radius: 0;
+      box-shadow: 2px 2px 0 #02060d;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-stage">Khu văn phòng (canvas ở trang chính)</div>
+  <div id="hud"></div>
+  <div class="preview-bar">
+    <button id="btn-state" type="button">Cập nhật</button>
+    <button id="btn-offline" type="button">Mất kết nối</button>
+    <button id="btn-detail" type="button">Thẻ chi tiết</button>
+  </div>
+  <script type="module">
+    import { initHud, update, setOffline, showAgent } from './js/hud.js';
+    import { fixtureState } from './js/hud-fixture.js';
+
+    initHud(document.getElementById('hud'));
+
+    let current = fixtureState();
+    let offline = false;
+    let detailIndex = 0;
+    update(current);
+
+    document.getElementById('btn-state').addEventListener('click', () => {
+      current = fixtureState();
+      update(current);
+    });
+
+    document.getElementById('btn-offline').addEventListener('click', (event) => {
+      offline = !offline;
+      setOffline(offline);
+      event.currentTarget.textContent = offline ? 'Đã kết nối' : 'Mất kết nối';
+    });
+
+    document.getElementById('btn-detail').addEventListener('click', () => {
+      detailIndex = (detailIndex + 1) % current.agents.length;
+      showAgent(current.agents[detailIndex]);
+    });
+  </script>
+</body>
+</html>

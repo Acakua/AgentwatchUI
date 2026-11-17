@@ -1,0 +1,29 @@
+{
+  "roles": {
+    "coder": "Lập trình logic",
+    "builder": "Lập trình tổng hợp",
+    "art": "Đồ họa",
+    "ui": "Giao diện",
+    "qa": "Kiểm thử",
+    "chore": "Việc vặt",
+    "reserve": "Dự bị",
+    "manager": "Trưởng phòng",
+    "deputy": "Phó phòng",
+    "staff": "Chuyên viên",
+    "guest": "Khách"
+  },
+  "agents": [
+    { "id": "byteplus/deepseek-v4-pro-ga-260813", "group": "opencode", "name": "DeepSeek Pro", "role": "coder", "color": "#4f8dff" },
+    { "id": "byteplus/ark-code-latest", "group": "opencode", "name": "Ark Code", "role": "builder", "color": "#35c2b0" },
+    { "id": "byteplus/seed-2-0-code-preview-260328", "group": "opencode", "name": "Seed Code", "role": "art", "color": "#e85d9a" },
+    { "id": "byteplus/deepseek-v4-1-flash-261017", "group": "opencode", "name": "DeepSeek Flash", "role": "ui", "color": "#9b6cff" },
+    { "id": "byteplus/seed-2-0-pro-260328", "group": "opencode", "name": "Seed Pro", "role": "qa", "color": "#f2b63d" },
+    { "id": "byteplus/seed-2-0-lite-260428", "group": "opencode", "name": "Seed Lite", "role": "chore", "color": "#8bc34a" },
+    { "id": "opencode/big-pickle", "group": "opencode", "name": "Big Pickle", "role": "reserve", "color": "#5fa55a" },
+    { "id": "opencode/nemotron-3.5-super-vl-free", "group": "opencode", "name": "Nemotron VL", "role": "reserve", "color": "#7fb800" },
+    { "id": "claude-fable-5-2", "group": "claude", "name": "Fable", "role": "manager", "color": "#d97757" },
+    { "id": "claude-opus-5-5", "group": "claude", "name": "Opus", "role": "deputy", "color": "#c15f3c" },
+    { "id": "claude-sonnet-5-5", "group": "claude", "name": "Sonnet", "role": "staff", "color": "#e0a070" },
+    { "id": "claude-haiku-5-5", "group": "claude", "name": "Haiku", "role": "staff", "color": "#f0c9a0" }
+  ]
+}

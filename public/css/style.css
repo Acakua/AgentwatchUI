@@ -1,0 +1,541 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #080d16;
+  overflow: hidden;
+}
+
+#office {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #0b1220;
+  image-rendering: pixelated;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  overflow: hidden;
+  color: #dbe4f2;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  image-rendering: pixelated;
+}
+
+#hud *,
+#hud *::before,
+#hud *::after {
+  box-sizing: border-box;
+}
+
+#hud [hidden] {
+  display: none !important;
+}
+
+.hud-panel {
+  background: rgba(8, 14, 26, 0.88);
+  border: 2px solid #9fb4d0;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 #02060d;
+  pointer-events: auto;
+}
+
+.hud-top {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 38px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+}
+
+.hud-title {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.hud-clock {
+  color: #9fe3b0;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.hud-counts {
+  justify-self: end;
+  color: #cfe0f5;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hud-left {
+  position: absolute;
+  top: 54px;
+  left: 8px;
+  width: 300px;
+  max-height: calc(100vh - 270px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hud-right-col {
+  position: absolute;
+  top: 54px;
+  right: 8px;
+  bottom: 8px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hud-right-col > .hud-panel {
+  pointer-events: auto;
+}
+
+.hud-right {
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hud-detail {
+  flex: 0 0 auto;
+  max-height: 62%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hud-log {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 300px;
+  max-height: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hud-head {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(159, 180, 208, 0.14);
+  border-bottom: 2px solid #9fb4d0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hud-head-title {
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.hud-fold {
+  color: #9fb4d0;
+  font-weight: bold;
+}
+
+.hud-panel.collapsed .hud-head {
+  border-bottom: 0;
+}
+
+.hud-panel.collapsed .hud-body {
+  display: none;
+}
+
+.hud-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 8px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #5d7290 #0d1626;
+}
+
+.hud-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(159, 180, 208, 0.35);
+}
+
+.hud-total {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.hud-total-label {
+  color: #8fa6c4;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hud-total-val {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.hud-total-cost {
+  min-width: 50px;
+  color: #f2b63d;
+  text-align: right;
+}
+
+.hud-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-row {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(159, 180, 208, 0.18);
+}
+
+.hud-row:last-child {
+  border-bottom: 0;
+}
+
+.hud-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-dot {
+  display: inline-block;
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  background: #9aa0a6;
+  box-shadow: 0 0 0 1px #02060d;
+}
+
+.hud-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #eaf1fb;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-state {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.is-working {
+  color: #5fd97a;
+}
+
+.is-idle {
+  color: #8b97a8;
+}
+
+.is-reviewing {
+  color: #f2b63d;
+}
+
+.hud-row-mid {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: #9fb4d0;
+}
+
+.hud-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-nums {
+  flex: 0 0 auto;
+  color: #cfe0f5;
+}
+
+.hud-nums b {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.hud-sep {
+  padding: 0 3px;
+  color: #5d7290;
+}
+
+.hud-bar {
+  height: 4px;
+  margin-top: 3px;
+  background: rgba(159, 180, 208, 0.18);
+  overflow: hidden;
+}
+
+.hud-bar > i {
+  display: block;
+  height: 100%;
+  background: #4f8dff;
+}
+
+.hud-events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 10px;
+}
+
+.hud-event {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+}
+
+.hud-event-time {
+  color: #7f93ad;
+}
+
+.hud-event-body {
+  color: #c3d2e6;
+  overflow-wrap: anywhere;
+}
+
+.hud-event-name {
+  color: #9fe3b0;
+  font-weight: bold;
+}
+
+.hud-event-text {
+  color: #aebdd2;
+}
+
+.hud-empty {
+  padding: 2px 0;
+  color: #7f93ad;
+  font-size: 10px;
+}
+
+.hud-detail .hud-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hud-detail-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-detail-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-detail-id {
+  color: #8fa6c4;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.hud-kv {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.hud-kv > span {
+  color: #8fa6c4;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hud-kv > b {
+  color: #e7eefb;
+  font-weight: normal;
+  overflow-wrap: anywhere;
+}
+
+.hud-kv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(159, 180, 208, 0.35);
+}
+
+.hud-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-cell > span {
+  color: #8fa6c4;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hud-cell > b {
+  color: #e7eefb;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.hud-offline {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  padding: 6px 14px;
+  transform: translateX(-50%);
+  color: #1b0b0b;
+  background: #e85d5d;
+  border: 2px solid #02060d;
+  box-shadow: 2px 2px 0 #02060d;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Layout pass by the orchestrator after the first browser check: the panels
+   covered the office. The office now gets the top of the window and the HUD
+   lives in a dock below it. main.js sets --dock so the room keeps an integer zoom.
+   --------------------------------------------------------------------------- */
+:root {
+  --top: 28px;
+  --dock: 200px;
+}
+
+#office {
+  inset: auto;
+  top: var(--top);
+  left: 0;
+  width: 100% !important;
+  height: calc(100vh - var(--top) - var(--dock)) !important;
+}
+
+.hud-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--top);
+  border-width: 0 0 2px 0;
+  box-shadow: none;
+}
+
+.hud-left,
+.hud-log,
+.hud-right-col {
+  top: auto;
+  bottom: 6px;
+  height: calc(var(--dock) - 12px);
+  max-height: none;
+}
+
+.hud-left {
+  left: 6px;
+  width: calc(46% - 9px);
+}
+
+.hud-right-col {
+  left: calc(46% + 3px);
+  right: auto;
+  width: calc(26% - 6px);
+}
+
+.hud-log {
+  left: auto;
+  right: 6px;
+  width: calc(28% - 9px);
+}
+
+.hud-right {
+  min-height: 0;
+}
+
+/* The detail card floats over the top-right of the office only while open. */
+.hud-detail {
+  position: fixed;
+  top: calc(var(--top) + 8px);
+  right: 8px;
+  width: 290px;
+  max-height: calc(100vh - var(--top) - var(--dock) - 16px);
+}
+
+/* Totals on one line, agent rows in columns. */
+.hud-totals {
+  flex-direction: row;
+  gap: 18px;
+}
+
+.hud-total {
+  display: flex;
+  gap: 6px;
+}
+
+.hud-total-cost {
+  min-width: 0;
+}
+
+.hud-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  column-gap: 14px;
+}
+
+.hud-row:last-child {
+  border-bottom: 1px solid rgba(159, 180, 208, 0.18);
+}

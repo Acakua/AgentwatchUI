@@ -1,0 +1,12 @@
+Create a file calc.js in the current directory (Node.js, CommonJS, no dependencies) exporting a function evaluate(expr: string): number.
+Rules:
+- Supports + - * / % ^ and parentheses, decimal numbers like 3, 3.5, .5 and scientific notation like 1e3 or 2.5E-2.
+- ^ is exponentiation, right-associative, and binds tighter than unary minus on its left: -2^2 = -4, but 2^-2 = 0.25.
+- Unary + and - may be stacked: --3 = 3, 2*-+-3 = 6.
+- % is the mathematical modulo with the sign of the divisor: -7 % 3 = 2, 7 % -3 = -2. Same precedence as * and /.
+- Implicit multiplication is supported ONLY between a number or ')' and a following '(': 2(3+4) = 14, (1+2)(3+4) = 21. "2 3" is an error.
+- Functions: min(a,b,...) and max(a,b,...) with 1 or more comma separated arguments, and abs(x). Names are case-insensitive.
+- Whitespace is ignored between tokens.
+- Division or modulo by zero throws Error with message exactly "DIV0". Any syntax problem (empty input, unknown character, unbalanced parens, trailing operator, unknown function, wrong arg count for abs) throws Error with message exactly "SYNTAX".
+- Do not use eval or Function.
+Write only calc.js. Do not write tests or other files. When finished reply with one line: DONE.

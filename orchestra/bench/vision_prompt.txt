@@ -1,0 +1,10 @@
+ANSWER KEY (not sent to the model): 1) K7Q4-ZX 2) 3, top-left 3) green circle 4) cyan 5) orange hair, blue shirt 6) 2 bars, left taller
+-----
+Look at the attached image scene.png (pixel art). Answer in exactly 6 short numbered lines, no tools needed beyond viewing the image:
+1. The text code written at the bottom.
+2. How many red squares, and in which corner.
+3. Color and shape of the object in the bottom-right corner.
+4. Color of the monitor screen.
+5. Hair color and shirt color of the character.
+6. How many yellow vertical bars at top-right, and which one is taller (left or right).
+If you cannot see the image, reply only: CANNOT SEE.
