@@ -9,7 +9,8 @@ export const CHAR_W = 16;
 export const CHAR_H = 24;
 
 // Top-right corner reserved for the manager: desks may not enter this rect.
-export const MANAGER_CORNER = { x: 356, y: WALL_H, w: ROOM_W - 356, h: 110 };
+// Enlarged to hold one desk per Claude agent plus a lounge.
+export const MANAGER_CORNER = { x: 336, y: WALL_H, w: ROOM_W - 336, h: 172 };
 
 export const BENCH_Y = 244;
 export const BENCH_W = 64;
@@ -24,6 +25,28 @@ const GRID_START_Y = 36;
 const GRID_GAP_X = 56;
 const GRID_GAP_Y = 44;
 const DESK_BOTTOM_LIMIT = 232;
+
+// Seated feet sit this far above the desk bottom, matching drawDesk's front
+// edge; the desk is drawn over the lower half of the character.
+const SEAT_Y_INSET = 8;
+
+// Fixed Claude desks inside the manager corner: the first is the big manager
+// desk, the rest are ordinary desks in two rows. Positions do not depend on n.
+const MANAGER_DESKS = [
+  { x: 340, y: 36, w: 48, h: 24, big: true },
+  { x: 392, y: 36, w: 32, h: 24, big: false },
+  { x: 428, y: 36, w: 32, h: 24, big: false },
+  { x: 340, y: 84, w: 32, h: 24, big: false },
+  { x: 376, y: 84, w: 32, h: 24, big: false },
+  { x: 412, y: 84, w: 32, h: 24, big: false },
+];
+
+// Lounge sofas (drawSofa is 40x18) and the seats in front of each one.
+const SOFAS = [
+  { x: 338, y: 140, w: 40, h: 18 },
+  { x: 380, y: 140, w: 40, h: 18 },
+  { x: 422, y: 140, w: 40, h: 18 },
+];
 
 function clamp(value, lo, hi) {
   return Math.max(lo, Math.min(hi, value));
@@ -55,7 +78,7 @@ export function deskSlots(count) {
       desk: { x: deskX, y: deskY, w: DESK_W, h: DESK_H },
       chair: { x: deskX + 10, y: deskY + 12, w: 12, h: 14 },
       // Feet anchor for the seated character (behind the desk).
-      seat: { x: deskX + DESK_W / 2, y: deskY + 16 },
+      seat: { x: deskX + DESK_W / 2, y: deskY + DESK_H - SEAT_Y_INSET },
       // Where a reviewing manager stands, in the gap left of the desk.
       stand: { x: deskX - 6, y: deskY + 30 },
     });
@@ -126,51 +149,60 @@ export function benchSeats(count) {
   return seats;
 }
 
-// Manager corner furniture and the fixed spots for Claude agents. Every spot
-// is at least 26 px from the others so characters and nameplates do not collide.
-export function managerSpots() {
-  const deskX = ROOM_W - 48 - 16;
-  const deskY = 40;
-  const rugX = deskX;
-  const rugY = 68;
-  const sofaX = ROOM_W - BENCH_W - 16;
-  const sofaY = 104;
+// A desk and seat for every Claude agent. Index 0 is the big manager desk,
+// 1.. are ordinary desks. The seat has the same offset from its desk as an
+// opencode worker seat has from a worker desk, so the sit pose is identical.
+export function managerSpots(n) {
+  const count = clamp(Math.floor(Number(n) || MANAGER_DESKS.length), 1, MANAGER_DESKS.length);
+  const desks = MANAGER_DESKS.slice(0, count).map((d, index) => ({
+    index,
+    desk: { x: d.x, y: d.y, w: d.w, h: d.h, big: d.big },
+    seat: { x: d.x + d.w / 2, y: d.y + d.h - SEAT_Y_INSET },
+    // Fallback standing spot beside the desk when no worker target exists.
+    review: { x: d.x + d.w / 2, y: d.y + 30 },
+  }));
 
-  const work = [
-    // Seat behind the manager desk for the first working Claude agent.
-    { x: deskX + 24, y: deskY + 10 },
-    // Standing spots beside the desk for further working ones.
-    { x: deskX - 32, y: deskY - 2 },
-    { x: deskX - 32, y: deskY + 28 },
-    { x: deskX - 32, y: deskY + 60 },
-    { x: deskX - 32, y: deskY + 88 },
-    { x: ROOM_W - 14, y: deskY },
-    { x: ROOM_W - 14, y: rugY },
-    { x: ROOM_W - 14, y: rugY + 28 },
-  ];
-
-  const idle = [];
-  const idleRows = [sofaY + 12, sofaY - 16];
-  for (let r = 0; r < idleRows.length; r++) {
+  const lounge = [];
+  let index = 0;
+  for (let s = 0; s < SOFAS.length; s++) {
     for (let c = 0; c < 2; c++) {
-      const i = r * 2 + c;
-      idle.push({
-        x: sofaX + 8 + c * 28,
-        y: idleRows[r],
-        index: i,
-        plateRaise: i % 2 === 0 ? 0 : 9,
+      lounge.push({
+        index,
+        sofaIndex: s,
+        x: SOFAS[s].x + 8 + c * 24,
+        y: SOFAS[s].y + 12,
+        plateRaise: index % 2 === 0 ? 0 : 9,
       });
+      index++;
     }
   }
 
   return {
     corner: MANAGER_CORNER,
-    desk: { x: deskX, y: deskY, w: 48, h: 24 },
-    rug: { x: rugX, y: rugY, w: 48, h: 32 },
-    sofa: { x: sofaX, y: sofaY, w: BENCH_W, h: BENCH_H },
-    work,
-    idle,
+    desks,
+    sofas: SOFAS.map((s) => ({ ...s })),
+    lounge,
+    rug: { x: 340, y: 36, w: 48, h: 32 },
   };
+}
+
+// Round-2 decor as data. x/y are the top-left of the sprite, w/h its size.
+// Kept clear of every desk, seat and the walking corridor at CORRIDOR_Y.
+export function decor() {
+  return [
+    { sprite: 'door', x: 12, y: 0, w: 20, h: 30 },
+    { sprite: 'whiteboard', x: 372, y: 1, w: 44, h: 22 },
+    { sprite: 'clock', x: 424, y: 4, w: 10, h: 10 },
+    { sprite: 'poster', x: 444, y: 3, w: 14, h: 16 },
+    { sprite: 'bookshelf', x: 456, y: 104, w: 24, h: 34 },
+    { sprite: 'waterCooler', x: 468, y: 60, w: 10, h: 24 },
+    { sprite: 'plant', x: 448, y: 64, w: 12, h: 20 },
+    { sprite: 'plant', x: 344, y: 116, w: 12, h: 20 },
+    { sprite: 'sofa', x: 338, y: 140, w: 40, h: 18 },
+    { sprite: 'sofa', x: 380, y: 140, w: 40, h: 18 },
+    { sprite: 'sofa', x: 422, y: 140, w: 40, h: 18 },
+    { sprite: 'coffeeTable', x: 372, y: 170, w: 20, h: 12 },
+  ];
 }
 
 // Where a reviewing Claude agent stands next to the desk of an opencode agent.

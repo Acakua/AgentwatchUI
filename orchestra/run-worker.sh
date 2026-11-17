@@ -10,7 +10,9 @@
 #   and a one-line result is appended to <project-dir>/.orchestra/runs.tsv
 # - Exit code is opencode's exit code (124 = timed out).
 #
-# Env: WORKER_TIMEOUT (seconds, default 1500), WORKER_VARIANT (opencode --variant).
+# Env: WORKER_TIMEOUT (seconds, default 1500), WORKER_VARIANT (opencode --variant),
+#      WORKER_PROMPT (replace the fixed prompt), WORKER_FALLBACK (role to use when the
+#      BytePlus quota runs out; default free-<role>; "none" disables).
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -42,20 +44,49 @@ fi
 
 name="$(basename "$brief" .md)"
 mkdir -p "$dir/.orchestra/logs"
-log="$dir/.orchestra/logs/$(date +%Y%m%d-%H%M%S)-$name-$role.log"
 prompt="${WORKER_PROMPT:-}"
 [ -n "$prompt" ] || prompt="Read AGENTS.md first. Then do the task in $brief exactly as written. Finish with the report block that AGENTS.md asks for."
 
-args=(run --auto -m "$model" --dir "$dir" --title "[$role] $name")
-[ -n "${WORKER_VARIANT:-}" ] && args+=(--variant "$WORKER_VARIANT")
+run_once() {   # $1 role label, $2 model, rest: extra opencode args
+  local r="$1" m="$2"; shift 2
+  log="$dir/.orchestra/logs/$(date +%Y%m%d-%H%M%S)-$name-$r.log"
+  local a=(run --auto -m "$m" --dir "$dir" --title "[$r] $name")
+  [ -n "${WORKER_VARIANT:-}" ] && a+=(--variant "$WORKER_VARIANT")
+  echo "run-worker: role=$r model=$m brief=$brief log=$log"
+  local start; start=$(date +%s)
+  timeout "${WORKER_TIMEOUT:-1500}" opencode "${a[@]}" "$@" -- "$prompt" >"$log" 2>&1
+  code=$?
+  secs=$(( $(date +%s) - start ))
+  printf '%s\t%s\t%s\t%s\texit=%s\t%ss\t%s\n' "$(date +%F\ %T)" "$r" "$m" "$brief" "$code" "$secs" "$log" >>"$dir/.orchestra/runs.tsv"
+  echo "run-worker: exit=$code secs=$secs"
+}
 
-echo "run-worker: role=$role model=$model brief=$brief log=$log"
-start=$(date +%s)
-timeout "${WORKER_TIMEOUT:-1500}" opencode "${args[@]}" "$@" -- "$prompt" >"$log" 2>&1
-code=$?
-secs=$(( $(date +%s) - start ))
-printf '%s\t%s\t%s\t%s\texit=%s\t%ss\t%s\n' "$(date +%F\ %T)" "$role" "$model" "$brief" "$code" "$secs" "$log" >>"$dir/.orchestra/runs.tsv"
-echo "run-worker: exit=$code secs=$secs"
+run_once "$role" "$model" "$@"
+
+# BytePlus Coding Plan quota hit: rerun the same brief on the free team (RUNBOOK 2.1).
+if [[ "$model" == byteplus/* ]] && grep -q "exceeded the 5-hour usage quota" "$log"; then
+  fb="${WORKER_FALLBACK:-free-$role}"
+  fbmodel="$(awk -v r="$fb" '$1==r {print $2; exit}' "$here/roles.conf")"
+  if [ "$fb" != "none" ] && [ -n "$fbmodel" ]; then
+    echo "run-worker: BytePlus 5-hour quota exceeded; rerunning on $fb ($fbmodel). Partial files from the first run are still on disk."
+    # A session id from -s/-c belongs to the first model; do not pass it on.
+    extra=(); skip=0
+    for x in "$@"; do
+      if [ $skip = 1 ]; then skip=0; continue; fi
+      case "$x" in -s|--session) skip=1 ;; -c|--continue|--fork) ;; *) extra+=("$x") ;; esac
+    done
+    run_once "$fb" "$fbmodel" "${extra[@]}"
+  else
+    echo "run-worker: BytePlus 5-hour quota exceeded and no fallback role '$fb' in roles.conf"
+  fi
+fi
+
+# Exit 0 is not proof of work: a model can read the brief and stop (seen 2026-11-17).
+if [ $code = 0 ] && ! grep -q "STATUS:" "$log"; then
+  echo "run-worker: WARNING no report block (no 'STATUS:' line). The worker probably stopped early; check 'git status' and consider another model."
+  code=3
+fi
+
 echo "----- last lines of the worker's output -----"
 sed 's/\x1b\[[0-9;]*m//g' "$log" | tail -40
 exit $code

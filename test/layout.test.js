@@ -25,7 +25,7 @@ function key(p) {
   return Math.round(p.x * 100) + ':' + Math.round(p.y * 100);
 }
 
-const COUNTS = [1, 12, 20];
+const COUNTS = [1, 12, 16, 20, 28];
 
 test('desk slots: count, bounds, manager corner, no overlap', async () => {
   const L = await layout();
@@ -63,6 +63,18 @@ test('desk slots: count, bounds, manager corner, no overlap', async () => {
   }
 });
 
+test('worker desks for n=16 do not overlap the manager corner', async () => {
+  const L = await layout();
+  const corner = L.MANAGER_CORNER;
+  assert.ok(corner.x + corner.w <= L.ROOM_W && corner.y + corner.h <= L.ROOM_H, 'corner inside room');
+  for (const slot of L.deskSlots(16)) {
+    assert.ok(!rectsOverlap(slot.desk, corner), 'worker desk outside corner');
+    for (const p of [slot.seat, slot.stand, slot.chair]) {
+      assert.ok(!insideRect(corner, p), 'worker point outside corner');
+    }
+  }
+});
+
 test('bench seats: distinct and inside room', async () => {
   const L = await layout();
   for (const n of [1, 8, 12, 20]) {
@@ -80,20 +92,100 @@ test('bench seats: distinct and inside room', async () => {
   }
 });
 
-test('manager spots stay in the corner', async () => {
+test('manager desks: inside the corner, no overlap, one per Claude agent', async () => {
   const L = await layout();
-  const spots = L.managerSpots();
-  for (const rect of [spots.desk, spots.rug, spots.sofa]) {
-    assert.ok(rect.x >= L.MANAGER_CORNER.x, 'manager furniture in corner x');
-    assert.ok(rect.x + rect.w <= L.ROOM_W, 'manager furniture inside room x');
-    assert.ok(rect.y >= L.MANAGER_CORNER.y, 'manager furniture in corner y');
-    assert.ok(rect.y + rect.h <= L.ROOM_H, 'manager furniture inside room y');
+  for (const n of [1, 4, 6]) {
+    const spots = L.managerSpots(n);
+    assert.strictEqual(spots.desks.length, n, 'one desk per Claude agent n=' + n);
+    assert.ok(spots.desks[0].desk.big === true, 'first desk is the big manager desk');
+    for (let i = 1; i < spots.desks.length; i++) {
+      assert.ok(spots.desks[i].desk.big === false, 'later desks are ordinary n=' + n);
+      assert.strictEqual(spots.desks[i].desk.w, 32, 'ordinary desk width n=' + n);
+      assert.strictEqual(spots.desks[i].desk.h, 24, 'ordinary desk height n=' + n);
+    }
+    for (const entry of spots.desks) {
+      const d = entry.desk;
+      if (entry.desk.big) {
+        assert.strictEqual(d.w, 48, 'big desk width');
+        assert.strictEqual(d.h, 24, 'big desk height');
+      }
+      assert.ok(insideRect(spots.corner, { x: d.x, y: d.y }), 'desk top-left in corner n=' + n);
+      assert.ok(insideRect(spots.corner, { x: d.x + d.w, y: d.y + d.h }), 'desk bottom-right in corner n=' + n);
+      assert.ok(insideRect(spots.corner, entry.seat), 'desk seat in corner n=' + n);
+      assert.ok(insideRect(spots.corner, entry.review), 'desk review spot in corner n=' + n);
+    }
+    for (let i = 0; i < spots.desks.length; i++) {
+      for (let j = i + 1; j < spots.desks.length; j++) {
+        assert.ok(!rectsOverlap(spots.desks[i].desk, spots.desks[j].desk),
+          'manager desks do not overlap n=' + n + ' ' + i + '/' + j);
+      }
+    }
   }
-  assert.ok(spots.work.length >= 4);
-  assert.ok(spots.idle.length >= 4);
-  for (const p of spots.work.concat(spots.idle)) {
-    assert.ok(insideRect(L.MANAGER_CORNER, p), 'manager spot inside corner');
-    assert.ok(insideRoom(L, p), 'manager spot inside room');
+});
+
+test('manager seat has the same offset as a worker seat', async () => {
+  const L = await layout();
+  const worker = L.deskSlots(1)[0];
+  // Worker seat is desk-centred and sits SEAT_Y_INSET above the desk bottom.
+  assert.strictEqual(worker.seat.x - worker.desk.x, worker.desk.w / 2, 'worker seat is desk-centred');
+  assert.strictEqual(worker.desk.y + worker.desk.h - worker.seat.y, 8, 'worker seat inset from desk bottom');
+  const spots = L.managerSpots(6);
+  for (const entry of spots.desks) {
+    assert.strictEqual(entry.seat.x - entry.desk.x, entry.desk.w / 2, 'manager seat is desk-centred');
+    assert.strictEqual(entry.desk.y + entry.desk.h - entry.seat.y, 8, 'manager seat inset matches worker');
+  }
+});
+
+test('lounge seats are at least 14 px apart', async () => {
+  const L = await layout();
+  for (const n of [1, 4, 6]) {
+    const lounge = L.managerSpots(n).lounge;
+    assert.ok(lounge.length >= 6, 'at least six lounge seats n=' + n);
+    for (const seat of lounge) {
+      assert.ok(insideRect(L.MANAGER_CORNER, seat), 'lounge seat inside corner n=' + n);
+    }
+    for (let i = 0; i < lounge.length; i++) {
+      for (let j = i + 1; j < lounge.length; j++) {
+        const dx = lounge[i].x - lounge[j].x;
+        const dy = lounge[i].y - lounge[j].y;
+        assert.ok(Math.sqrt(dx * dx + dy * dy) >= 14,
+          'lounge seat distance n=' + n + ' ' + i + '/' + j);
+      }
+    }
+  }
+});
+
+test('decor rectangles do not cover a desk, a seat or the corridor', async () => {
+  const L = await layout();
+  const desks = [];
+  const seats = [];
+  for (const n of [28]) {
+    for (const slot of L.deskSlots(n)) {
+      desks.push(slot.desk);
+      seats.push(slot.seat, slot.stand);
+    }
+    for (const seat of L.benchSeats(n)) seats.push({ x: seat.x, y: seat.y });
+  }
+  const spots = L.managerSpots(6);
+  for (const entry of spots.desks) {
+    desks.push(entry.desk);
+    seats.push(entry.seat, entry.review);
+  }
+  for (const seat of spots.lounge) seats.push({ x: seat.x, y: seat.y });
+
+  for (const item of L.decor()) {
+    const rect = { x: item.x, y: item.y, w: item.w, h: item.h };
+    for (const desk of desks) {
+      assert.ok(!rectsOverlap(rect, desk), 'decor ' + item.sprite + ' covers a desk');
+    }
+    // Sofas are the furniture the lounge seats rest on, not covers over them.
+    if (item.sprite !== 'sofa') {
+      for (const seat of seats) {
+        assert.ok(!insideRect(rect, seat), 'decor ' + item.sprite + ' covers a seat');
+      }
+    }
+    assert.ok(!(rect.y <= L.CORRIDOR_Y && rect.y + rect.h >= L.CORRIDOR_Y),
+      'decor ' + item.sprite + ' covers the corridor');
   }
 });
 
@@ -114,7 +206,7 @@ test('pathBetween waypoints stay inside the room', async () => {
   for (const n of COUNTS) {
     const slots = L.deskSlots(n);
     const bench = L.benchSeats(n);
-    const spots = L.managerSpots();
+    const spots = L.managerSpots(6);
     const points = [
       { x: 8, y: 8 },
       { x: L.ROOM_W - 8, y: L.ROOM_H - 8 },
@@ -122,8 +214,8 @@ test('pathBetween waypoints stay inside the room', async () => {
       ...slots.map((s) => s.seat),
       ...slots.map((s) => s.stand),
       ...bench.map((s) => ({ x: s.x, y: s.y })),
-      ...spots.work,
-      ...spots.idle,
+      ...spots.desks.map((d) => d.seat),
+      ...spots.lounge.map((s) => ({ x: s.x, y: s.y })),
     ];
 
     for (let i = 0; i < points.length; i++) {
@@ -170,47 +262,6 @@ test('bench seats spread across the row with minimum spacing', async () => {
         const gap = xs[i] - xs[i - 1];
         assert.ok(gap >= minGap, 'bench gap ' + gap + ' >= ' + minGap + ' n=' + n);
       }
-    }
-  }
-});
-
-test('manager spots are at least 26 px apart for six Claude agents', async () => {
-  const L = await layout();
-  const spots = L.managerSpots();
-  const all = spots.work.concat(spots.idle);
-  assert.ok(all.length >= 6, 'enough manager spots');
-  for (let i = 0; i < all.length; i++) {
-    for (let j = i + 1; j < all.length; j++) {
-      const dx = all[i].x - all[j].x;
-      const dy = all[i].y - all[j].y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      assert.ok(dist >= 26, 'manager spot distance ' + dist + ' for pair ' + i + '/' + j);
-    }
-  }
-});
-
-test('many agents stay inside the room and out of the manager corner', async () => {
-  const L = await layout();
-  for (const n of [15, 20, 28]) {
-    for (const slot of L.deskSlots(n)) {
-      assert.ok(!rectsOverlap(slot.desk, L.MANAGER_CORNER), 'desk outside manager corner n=' + n);
-      const points = [
-        { x: slot.desk.x, y: slot.desk.y },
-        { x: slot.desk.x + slot.desk.w, y: slot.desk.y + slot.desk.h },
-        slot.seat,
-        slot.stand,
-        slot.chair,
-      ];
-      for (const p of points) {
-        assert.ok(insideRoom(L, p), 'desk point inside room n=' + n);
-        assert.ok(!insideRect(L.MANAGER_CORNER, p), 'desk point outside manager corner n=' + n);
-      }
-    }
-
-    for (const seat of L.benchSeats(n)) {
-      assert.ok(insideRoom(L, seat), 'bench seat inside room n=' + n);
-      assert.ok(!insideRect(L.MANAGER_CORNER, seat), 'bench seat outside manager corner n=' + n);
-      assert.ok(seat.benchX >= 0 && seat.benchX + L.BENCH_W <= L.ROOM_W, 'bench inside room n=' + n);
     }
   }
 });

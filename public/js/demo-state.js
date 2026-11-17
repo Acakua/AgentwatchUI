@@ -133,6 +133,9 @@ export function createDemoState(startNow) {
   let review = null;
   let lastReviewAt = now0 - 15000;
   let reviewUntil = 0;
+  // BytePlus is quota-blocked for the first 40 s so the quota bubble and the
+  // dimmed nameplate can be seen, then the limit clears.
+  const quotaResetAt = now0 + 40000;
   const events = [];
 
   function opencodeRuntime() {
@@ -215,10 +218,12 @@ export function createDemoState(startNow) {
       }
     }
 
+    const quotaBlocked = now < quotaResetAt;
     const agents = runtime.map((r) => {
       const agent = r.agent;
       let state = r.working ? 'working' : 'idle';
       if (review && review.by === agent.id) state = 'reviewing';
+      const byteplus = agent.group === 'opencode' && agent.id.indexOf('byteplus/') === 0;
       return {
         id: agent.id,
         group: agent.group,
@@ -231,6 +236,7 @@ export function createDemoState(startNow) {
         tool: r.tool,
         activeSessions: r.working ? 1 : 0,
         lastActive: r.lastActive,
+        blockedUntil: byteplus && quotaBlocked ? quotaResetAt : 0,
         usage: cloneUsage(r.all),
         usageToday: cloneUsage(r.today),
       };
@@ -242,6 +248,15 @@ export function createDemoState(startNow) {
     return {
       now,
       agents,
+      quota: [{
+        id: 'byteplus',
+        group: 'opencode',
+        label: 'BytePlus Coding Plan',
+        hitAt: now0,
+        resetAt: quotaResetAt,
+        blocked: quotaBlocked,
+        text: '5-hour usage quota',
+      }],
       review: review ? { by: review.by, target: review.target, note: review.note, since: review.since } : null,
       totals: {
         opencode: {

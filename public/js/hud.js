@@ -29,6 +29,7 @@ const SHELL = [
   '<header class="hud-head" data-toggle="opencode"><span class="hud-head-title">OPENCODE</span><span class="hud-fold">-</span></header>',
   '<div class="hud-body">',
   '<div class="hud-totals" data-slot="opencode-totals"></div>',
+  '<div class="hud-quota-list" data-slot="opencode-quota"></div>',
   '<div class="hud-rows" data-slot="opencode-rows"></div>',
   '</div>',
   '</section>',
@@ -37,6 +38,7 @@ const SHELL = [
   '<header class="hud-head" data-toggle="claude"><span class="hud-head-title">CLAUDE CODE</span><span class="hud-fold">-</span></header>',
   '<div class="hud-body">',
   '<div class="hud-totals" data-slot="claude-totals"></div>',
+  '<div class="hud-quota-list" data-slot="claude-quota"></div>',
   '<div class="hud-rows" data-slot="claude-rows"></div>',
   '</div>',
   '</section>',
@@ -56,6 +58,14 @@ let ui = null;
 let lastState = null;
 let detailId = null;
 const collapsed = { opencode: false, claude: false, events: false, detail: false };
+
+let stateReceivedAt = 0;
+let stateNow = 0;
+function effectiveNow() {
+  const base = Number(stateNow) || 0;
+  const elapsed = stateReceivedAt ? Date.now() - stateReceivedAt : 0;
+  return base + (Number.isFinite(elapsed) ? elapsed : 0);
+}
 
 const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -77,6 +87,24 @@ function hhmmss(ms) {
   if (!Number.isFinite(n) || n <= 0) return '--:--:--';
   const d = new Date(n);
   return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+}
+
+export function formatClock(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n)) return '00:00';
+  const d = new Date(n);
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+export function formatRemaining(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return '0p';
+  if (n < 60000) return '<1p';
+  const totalMinutes = Math.floor(n / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return hours + 'g ' + minutes + 'p';
+  return minutes + 'p';
 }
 
 export function formatTokens(value) {
@@ -153,12 +181,15 @@ function rowHtml(agent, groupTotal) {
   if (total > 0) share = Math.max(2, share);
   share = Math.max(0, Math.min(100, share));
   const state = STATE_LABEL[agent.state] ? agent.state : 'idle';
+  const isBlocked = Number(agent.blockedUntil) > effectiveNow()
+    && state !== 'working' && state !== 'reviewing';
 
   return '<div class="hud-row">'
     + '<div class="hud-row-top">'
     + '<span class="hud-dot" style="background:' + safeColor(agent.color) + '"></span>'
     + '<span class="hud-name">' + esc(agent.name) + '</span>'
-    + '<span class="hud-state ' + STATE_CLASS[state] + '">' + STATE_LABEL[state] + '</span>'
+    + '<span class="hud-state ' + (isBlocked ? 'is-blocked' : STATE_CLASS[state]) + '">'
+    + (isBlocked ? 'HẾT HẠN MỨC' : STATE_LABEL[state]) + '</span>'
     + '</div>'
     + '<div class="hud-row-mid">'
     + '<span class="hud-role">' + esc(agent.roleLabel || agent.role || '') + '</span>'
@@ -178,13 +209,37 @@ function renderGroup(group, state, agents) {
   for (const agent of rows) groupTotal += usageTotal(agent.usage);
 
   const totalsEl = group === 'opencode' ? ui.opencodeTotals : ui.claudeTotals;
+  const quotaEl = group === 'opencode' ? ui.opencodeQuota : ui.claudeQuota;
   const rowsEl = group === 'opencode' ? ui.opencodeRows : ui.claudeRows;
   if (totalsEl) totalsEl.innerHTML = totalsHtml(today, all);
+  if (quotaEl) quotaEl.innerHTML = quotaHtml(group, state);
   if (rowsEl) {
     rowsEl.innerHTML = rows.length
       ? rows.map((agent) => rowHtml(agent, groupTotal)).join('')
       : '<div class="hud-empty">Không có mô hình</div>';
   }
+}
+
+function quotaHtml(group, state) {
+  const now = effectiveNow();
+  const entries = Array.isArray(state.quota)
+    ? state.quota.filter((q) => q && q.group === group)
+    : [];
+  return entries.map((q) => {
+    const label = esc(q.label != null ? q.label : (q.id != null ? q.id : ''));
+    const resetAt = Number(q.resetAt) || 0;
+    if (q.blocked) {
+      if (resetAt > 0) {
+        return '<div class="hud-quota is-blocked">HẾT HẠN MỨC · ' + label
+          + ' · hồi ' + formatClock(resetAt) + ' (còn ' + formatRemaining(resetAt - now) + ')</div>';
+      }
+      return '<div class="hud-quota is-blocked">HẾT HẠN MỨC · ' + label + ' · chưa rõ giờ hồi</div>';
+    }
+    if (resetAt > 0 && resetAt <= now && (now - resetAt) <= 6 * 60 * 60 * 1000) {
+      return '<div class="hud-quota is-restored">Đã hồi lúc ' + formatClock(resetAt) + ' · ' + label + '</div>';
+    }
+    return '';
+  }).filter(Boolean).join('');
 }
 
 function renderEvents(state, byId) {
@@ -237,6 +292,10 @@ function renderDetail(agent) {
     + '<div class="hud-kv"><span>Vai trò</span><b>' + esc(agent.roleLabel || agent.role || '') + '</b></div>'
     + '<div class="hud-kv"><span>Nhiệm vụ</span><b>' + esc(agent.task || '—') + '</b></div>'
     + '<div class="hud-kv"><span>Công cụ</span><b>' + esc(agent.tool || '—') + '</b></div>'
+    + (Number(agent.blockedUntil) > effectiveNow()
+      ? '<div class="hud-kv"><span>Hồi hạn mức</span><b>' + formatClock(agent.blockedUntil)
+        + ' (còn ' + formatRemaining(Number(agent.blockedUntil) - effectiveNow()) + ')</b></div>'
+      : '')
     + '<div class="hud-kv"><span>Phiên đang mở</span><b>' + formatInt(agent.activeSessions) + '</b></div>'
     + '<div class="hud-kv"><span>Hoạt động cuối</span><b>'
     + (Number(agent.lastActive) > 0 ? hhmmss(agent.lastActive) : '—') + '</b></div>'
@@ -284,8 +343,10 @@ export function initHud(root) {
     clock: target.querySelector('[data-slot="clock"]'),
     counts: target.querySelector('[data-slot="counts"]'),
     opencodeTotals: target.querySelector('[data-slot="opencode-totals"]'),
+    opencodeQuota: target.querySelector('[data-slot="opencode-quota"]'),
     opencodeRows: target.querySelector('[data-slot="opencode-rows"]'),
     claudeTotals: target.querySelector('[data-slot="claude-totals"]'),
+    claudeQuota: target.querySelector('[data-slot="claude-quota"]'),
     claudeRows: target.querySelector('[data-slot="claude-rows"]'),
     events: target.querySelector('[data-slot="events"]'),
     detail: target.querySelector('[data-slot="detail"]'),
@@ -306,6 +367,8 @@ export function initHud(root) {
 
 export function update(state) {
   if (!ui || !state) return;
+  stateReceivedAt = Date.now();
+  stateNow = Number(state.now) || Date.now();
   lastState = state;
   const agents = Array.isArray(state.agents) ? state.agents : [];
   const byId = new Map();

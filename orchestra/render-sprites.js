@@ -156,9 +156,35 @@ function sheet(items, scale, bg, maxW) {
     must(S.drawBench(), 'drawBench', 64, 14), must(S.drawPlant(), 'drawPlant', 12, 20), must(S.drawWindow(), 'drawWindow', 24, 20),
     must(S.drawRug(), 'drawRug', 48, 32), must(S.drawFloorTile(), 'drawFloorTile', 16, 16), must(S.drawFloorTile(), 'drawFloorTile', 16, 16),
     must(S.drawWallTile(), 'drawWallTile', 16, 24), must(S.drawWallTile(), 'drawWallTile', 16, 24),
-    ...['code', 'review', 'zzz', 'ok', 'alert'].map((k) => must(S.drawBubble(k), 'drawBubble:' + k, 12, 12)),
+    ...['code', 'review', 'zzz', 'ok', 'alert', 'quota'].map((k) => must(S.drawBubble(k), 'drawBubble:' + k, 12, 12)),
+    must(S.drawSofa(), 'drawSofa', 40, 18), must(S.drawBookshelf(), 'drawBookshelf', 24, 34),
+    must(S.drawWaterCooler(), 'drawWaterCooler', 10, 24), must(S.drawWhiteboard(), 'drawWhiteboard', 44, 22),
+    must(S.drawClock(), 'drawClock', 10, 10), must(S.drawDoor(), 'drawDoor', 20, 30),
+    must(S.drawCoffeeTable(), 'drawCoffeeTable', 20, 12), must(S.drawPoster(), 'drawPoster', 14, 16),
+    must(S.drawShadow(12), 'drawShadow', 12, 4),
     must(S.drawNameplate('GLM 5.2', '#4fb3ff'), 'drawNameplate'), must(S.drawNameplate('FABLE', '#e8833a'), 'drawNameplate'),
   ];
   fs.writeFileSync(path.join(outDir, 'props.png'), sheet(props, 8, '#6b6f7a', 150));
-  console.log('wrote', ['chars.png', 'poses-down.png', 'props.png'].map((f) => path.join('.orchestra/preview', f)).join(', '));
+  // scene.png: a small mock-up room so props can be judged together, on the real floor.
+  {
+    const W = 240, H = 135, room = document.createElement('canvas'); room.width = W; room.height = H;
+    const g = room.getContext('2d'), floor = S.drawFloorTile(), wall = S.drawWallTile();
+    for (let y = 24; y < H; y += 16) for (let x = 0; x < W; x += 16) g.drawImage(floor, x, y);
+    for (let x = 0; x < W; x += 16) g.drawImage(wall, x, 0);
+    g.drawImage(S.drawWindow(), 20, 2); g.drawImage(S.drawWhiteboard(), 60, 1); g.drawImage(S.drawClock(), 112, 4);
+    g.drawImage(S.drawPoster(), 130, 3); g.drawImage(S.drawDoor(), 214, -6 + 0); g.drawImage(S.drawBookshelf(), 186, 6);
+    g.drawImage(S.drawPlant(), 4, 22); g.drawImage(S.drawWaterCooler(), 170, 18);
+    const me = { shirt: '#4fb3ff', hair: '#3b2a1a', skin: '#f2c9a0' };
+    g.drawImage(S.drawDesk({ screenOn: true }), 20, 44); g.drawImage(S.drawShadow(12), 30, 84);
+    g.drawImage(S.drawCharacter({ pose: 'type1', facing: 'up', ...me }), 28, 62);
+    g.drawImage(S.drawDesk({ screenOn: false }), 64, 44); g.drawImage(S.drawChair(), 74, 66);
+    g.drawImage(S.drawRug(), 150, 60); g.drawImage(S.drawManagerDesk({ screenOn: true }), 150, 44);
+    g.drawImage(S.drawSofa(), 154, 96); g.drawImage(S.drawCoffeeTable(), 200, 100);
+    g.drawImage(S.drawBench(), 20, 112); g.drawImage(S.drawShadow(12), 30, 126);
+    g.drawImage(S.drawCharacter({ pose: 'sit', facing: 'down', shirt: '#e8833a', hair: '#d9d9d9', skin: '#c68e5f' }), 28, 102);
+    g.drawImage(S.drawBubble('quota'), 30, 90); g.drawImage(S.drawBubble('code'), 30, 50);
+    g.drawImage(S.drawCharacter({ pose: 'review1', facing: 'left', shirt: '#d97757', hair: '#3b2a1a', skin: '#f2c9a0' }), 100, 52);
+    fs.writeFileSync(path.join(outDir, 'scene.png'), sheet([room], 5, '#101522', 260));
+  }
+  console.log('wrote', ['chars.png', 'poses-down.png', 'props.png', 'scene.png'].map((f) => path.join('.orchestra/preview', f)).join(', '));
 })().catch((e) => { console.error('RENDER FAILED:', e.message); process.exit(1); });

@@ -242,3 +242,76 @@ export function showAgent(agentOrNull); // detail card for hovered/selected agen
 - Numbers formatted compactly: 931000 → `931K`, 1250000 → `1.25M`; cost `$0.00`.
 - The HUD must not block mouse events on the canvas except on its own panels
   (`pointer-events: none` on the overlay, `auto` on panels). Panels are collapsible.
+
+## 9. Round 2 additions (2026-11-17)
+
+### 9.1 Quota (backend → front-end)
+
+`/api/state` gains one top-level field and one field per agent:
+
+```jsonc
+"quota": [                      // one entry per provider that hit a limit in the last 7 days, newest first
+  {
+    "id": "byteplus",           // provider key: the part of an opencode agent id before "/", or "claude"
+    "group": "opencode",        // "opencode" | "claude"
+    "label": "BytePlus Coding Plan",   // "Claude Code" for claude; otherwise the provider key
+    "hitAt": 1794884899341,     // ms epoch when the limit message was last seen
+    "resetAt": 1794897463000,   // ms epoch when the limit lifts, 0 if it could not be parsed
+    "blocked": true,            // see rule below
+    "text": "5-hour usage quota" // short human text taken from the message, max 60 chars
+  }
+]
+// and on every agent:
+"blockedUntil": 1794897463000   // resetAt of its provider while that provider is blocked, else 0
+```
+
+- `blocked` is true when `now < resetAt` **and** no successful assistant message from
+  that provider is newer than `hitAt`. With `resetAt` 0 it is true for 5 hours after `hitAt`.
+- opencode source: `message.data` JSON with
+  `"error":{"name":"APIError","data":{"message":"You have exceeded the 5-hour usage quota. It will reset at 2026-11-17 14:37:43 +0800 CST. ...","statusCode":429}}`
+  and `providerID`. Only status 429 messages that contain `quota` or `limit` count.
+  Parse the timestamp with its UTC offset (`+0800`).
+- Claude source: assistant transcript lines with `"isApiErrorMessage":true,"error":"rate_limit"`
+  and text like `You've hit your 5-hour limit · resets 10am (Asia/Bangkok)` or
+  `You've hit your session limit · resets 1:50pm (Asia/Bangkok)` or with a date,
+  `resets Nov 20, 9am (Asia/Bangkok)`. `resetAt` is the first such wall-clock time
+  after the line's `timestamp`, in the named IANA zone (use `Intl.DateTimeFormat`
+  with `timeZone`; no libraries). These lines carry no real usage: never count them
+  as messages or as activity.
+- An agent whose provider is blocked keeps its normal `state`; the front-end decides
+  how to show it.
+
+### 9.2 New sprites (art)
+
+Added to `public/js/sprites.js`, same rules as section 6:
+
+```js
+export function drawSofa();         // 40x18 lounge sofa, front view, seats 3
+export function drawBookshelf();    // 24x34 shelf with coloured book spines
+export function drawWaterCooler();  // 10x24
+export function drawWhiteboard();   // 44x22 wall-mounted, with a few marker scribbles
+export function drawClock();        // 10x10 wall clock
+export function drawDoor();         // 20x30
+export function drawCoffeeTable();  // 20x12
+export function drawPoster();       // 14x16 framed wall poster
+export function drawShadow(w);      // w x 4 soft drop shadow (semi-transparent), default w = 12
+// drawBubble gains kind 'quota': an hourglass
+```
+
+### 9.3 Scene changes
+
+- Every Claude agent has **its own desk with a computer** in the manager corner: the
+  first Claude agent in `state.agents` (the manager) gets the big manager desk, the
+  others get ordinary desks. A working Claude agent sits **at its own computer**, in
+  the same pose and position relative to the desk as an opencode worker at a worker
+  desk, and its screen is on. Idle Claude agents sit on the lounge sofa.
+- An agent with `blockedUntil > state.now` shows the `quota` bubble while idle
+  (instead of `zzz`) and its nameplate is drawn at 55% opacity.
+- Decor uses the round-2 sprites; shadows under characters and furniture.
+
+### 9.4 HUD changes
+
+- A line per `quota` entry in the matching panel, under the totals:
+  blocked → `HẾT HẠN MỨC · hồi HH:MM (còn 2g 15p)` in amber;
+  not blocked and `resetAt` in the past → `Đã hồi lúc HH:MM` in grey, shown for 6 hours after `resetAt` then hidden.
+- Agent rows of a blocked provider show the state label `HẾT HẠN MỨC` (amber) when not working.

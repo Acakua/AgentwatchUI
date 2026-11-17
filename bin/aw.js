@@ -11,7 +11,7 @@ const { readClaude } = require('../lib/claude.js');
 const REVIEW_DIR = path.join(os.homedir(), '.agentwatch');
 const REVIEW_FILE = path.join(REVIEW_DIR, 'review.json');
 const ROSTER_PATH = path.join(__dirname, '..', 'config', 'roster.json');
-const DEFAULT_BY = 'claude-fable-5-2';
+const DEFAULT_BY = 'claude-opus-5-5';
 
 function opencodeDbPath() {
   return process.env.OPENCODE_DB || path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
@@ -64,7 +64,29 @@ function status() {
     review: readReview(),
   });
   for (const a of state.agents) {
-    console.log(a.id + '\t' + a.state + '\t' + a.usage.total);
+    console.log(a.id + '\\t' + a.state + '\\t' + a.usage.total);
+  }
+  // Quota lines per provider.
+  const providers = new Set();
+  for (const a of state.agents) {
+    providers.add(a.group === 'opencode' ? String(a.id).split('/')[0] : 'claude');
+  }
+  const qmap = new Map((state.quota || []).map((q) => [q.id, q]));
+  for (const p of providers) {
+    const q = qmap.get(p);
+    if (q && q.blocked) {
+      const until = new Date(q.resetAt);
+      const hh = String(until.getHours()).padStart(2, '0');
+      const mm = String(until.getMinutes()).padStart(2, '0');
+      const remaining = Math.max(0, q.resetAt - now);
+      const mins = Math.round(remaining / 60000);
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      const dur = h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+      console.log(p + '  BLOCKED until ' + hh + ':' + mm + ' (' + dur + ')');
+    } else {
+      console.log(p + '  ok');
+    }
   }
 }
 

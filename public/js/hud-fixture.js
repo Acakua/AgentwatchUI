@@ -253,6 +253,11 @@ export function fixtureState(nowInput) {
     },
   ];
 
+  const blockedResetAt = now + 8100000;
+  for (const agent of agents) {
+    agent.blockedUntil = String(agent.id || '').startsWith('byteplus/') ? blockedResetAt : 0;
+  }
+
   const opencodeAgents = agents.filter((agent) => agent.group === 'opencode');
   const claudeAgents = agents.filter((agent) => agent.group === 'claude');
 
@@ -269,10 +274,30 @@ export function fixtureState(nowInput) {
     { t: now - 74000, agent: DEEPSEEK_PRO, text: 'edit lib/state.js' },
   ];
 
-  return {
+   return {
     now,
     agents,
     review: { by: FABLE, target: DEEPSEEK_PRO, note: 'S2a', since: now - 45000 },
+    quota: [
+      {
+        id: 'byteplus',
+        group: 'opencode',
+        label: 'BytePlus Coding Plan',
+        hitAt: now - 300000,
+        resetAt: now + 8100000,
+        blocked: true,
+        text: '5-hour usage quota',
+      },
+      {
+        id: 'claude',
+        group: 'claude',
+        label: 'Claude Code',
+        hitAt: now - 3600000,
+        resetAt: now - 1800000,
+        blocked: false,
+        text: '5-hour usage quota',
+      },
+    ],
     totals: {
       opencode: {
         all: sumUsage(opencodeAgents.map((agent) => agent.usage)),

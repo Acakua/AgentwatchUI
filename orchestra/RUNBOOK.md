@@ -1,12 +1,51 @@
 # Điều hành các model opencode — sổ tay cho phiên Claude Code
 
-*Viết 2026-11-17 bởi Claude Fable 5.2, sau khi đo thật trên máy này. Người đọc: phiên
-Claude Code kế tiếp (Opus). Đọc hết một lần trước khi giao việc đầu tiên.*
+*Viết 2026-11-17 bởi Claude Fable 5.2, sau khi đo thật trên máy này. Người đọc và
+người điều hành từ nay: **Claude Opus** (`/model claude-opus-5-5`). Fable sẽ không còn
+dùng được; mọi thứ nó biết về việc này nằm trong file này. Đọc hết một lần trước khi
+giao việc đầu tiên.*
 
 Bạn là **người điều hành** (trưởng phòng). Các model chạy qua `opencode` là **worker**.
 Bạn chia việc, viết brief, chạy worker ở chế độ nền, kiểm tra kết quả bằng chính tay
 mình, rồi mới báo người dùng. Worker rẻ và nhanh nhưng không biết gì ngoài brief, và
 báo cáo của nó là lời khai, không phải bằng chứng.
+
+## 0. Bàn giao cho Opus
+
+**Mỗi phiên, làm theo thứ tự này:**
+
+1. Đọc `production/session-state/active.md` (trong Game1) để biết việc đang dở.
+2. Kiểm tra hạn mức trước khi giao việc: `node bin/aw.js status` trong
+   `D:\DungHA\AgentwatchUI` in dòng `quota`. BytePlus đang bị chặn thì dùng thẳng các
+   chức vụ `free-*` (mục 2.1), đừng chờ worker chết rồi mới chuyển.
+3. Việc nhỏ (sửa một hai chỗ, một file) thì tự làm. Việc từ hai file trở lên có phép
+   kiểm tự động thì giao worker theo mục 5.
+4. Trước khi báo "xong": tự chạy phép kiểm, và với thứ nhìn thấy được thì tự mở lên
+   xem. Không có ngoại lệ.
+
+**Ba việc người điều hành không được giao đi**, vì worker làm hỏng mà không biết:
+
+- **Viết hợp đồng** (`docs/SPEC.md`): tên file, chữ ký hàm, hình dạng JSON, kích thước.
+  Viết bằng ví dụ dữ liệu thật. Hợp đồng mơ hồ thì các phần làm song song sẽ không khớp.
+- **Nhìn**: không worker nào tự mở được ảnh nó vừa tạo. Bạn kết xuất, bạn xem, bạn
+  viết lời chê đánh số, rồi đính ảnh bằng `-f` cho worker có mắt (mục 4.3).
+- **Quyết định dừng**: sau hai lần trả việc về mà vẫn hỏng thì tự làm phần đó. Đừng
+  thử lần ba.
+
+**Giữ hạn mức của chính bạn.** Gói Claude cũng có giới hạn 5 giờ. Đừng tự đọc cả file
+dài nếu chỉ cần một hàm; đừng tự viết thứ worker viết được; đừng dò log trong lúc chờ.
+Việc đọc nhiều (khảo sát mã, tóm tắt) cũng giao được cho `chore` hoặc `free-builder`.
+
+**Mẫu để chép khi viết brief mới** (đều trong `briefs/` của AgentwatchUI):
+
+| Cần brief cho | Chép từ |
+|---|---|
+| Backend có test và lệnh `curl` kiểm | `B1-backend.md`, `C1-quota-backend.md` |
+| Đồ họa có vòng nhìn và sửa | `C2-art-props.md` (lời chê đánh số từng asset) |
+| Giao diện không xem được trình duyệt | `B3-hud.md` |
+| Sửa lỗi sau khi bạn đã xem kết quả | `B5-scene-fixes.md`, `C3-scene-manager-desks.md` |
+
+**Dự án đang ở đâu** được ghi ở mục 10, cuối file. Cập nhật mục đó khi kết thúc phiên.
 
 ## 1. Điều kiện trên máy này
 
@@ -41,8 +80,50 @@ thức, 34 ca kiểm ẩn) và bài nhìn ảnh (6 câu hỏi về một ảnh p
 | `ui` | `byteplus/deepseek-v4-1-flash-261017` | 34/34 | 62 s | 6/6 | HTML/CSS, giao diện, đọc ảnh chụp màn hình. |
 | `qa` | `byteplus/seed-2-0-pro-260328` | 33/34 | 31 s | 6/6 | Viết và chạy test, soát việc của model khác, xem ảnh chụp. |
 | `chore` | `byteplus/seed-2-0-lite-260428` | 31/34 | 42 s | 6/6 | Tài liệu, đổi tên, việc lặp. **Không giao logic.** |
-| `reserve` | `opencode/big-pickle` | 34/34 | 164 s | không | Dự bị miễn phí khi gói BytePlus hỏng. |
-| `reserve-eyes` | `opencode/nemotron-3.5-super-vl-free` | chưa đo | — | 6/6 | Dự bị miễn phí có mắt. |
+| `reserve` | `opencode/big-pickle` | 34/34 | 164 s | không | Dự bị miễn phí cuối cùng. Dữ liệu có thể bị dùng để huấn luyện. |
+
+### 2.1 Đội miễn phí, dùng khi gói BytePlus hết hạn mức 5 giờ
+
+Model `opencode/*-free` không tính vào gói BytePlus. Đo cùng ngày bằng cùng hai bài.
+
+| Chức vụ | Model | Code | Thời gian | Nhìn ảnh | Dữ liệu (theo trang Models của opencode) |
+|---|---|---|---|---|---|
+| `free-coder` (thay `coder`) | `opencode/beam-free` | 34/34 | 80 s | không | Không huấn luyện, lưu 30 ngày |
+| `free-builder`, `free-art` (thay `builder`, `chore`, `art`) | `opencode/hy4-flash-free` | 34/34 | 74 s | 6/6 | Không lưu, không huấn luyện |
+| `free-ui` (thay `ui`) | `opencode/deepseek-v4.1-flash-free` | 34/34 | 75 s | 6/6 | Không lưu, không huấn luyện |
+| `free-qa` (thay `qa`) | `opencode/longcat-2.5-free` | 34/34 | 180 s | 6/6 | Không lưu, không huấn luyện. **100 lượt gọi/ngày**, máy chủ ở Trung Quốc |
+| `free-fast` | `opencode/inkling-2-small-free` | 34/34 | 54 s | 6/6 | **Có** lưu và huấn luyện |
+| — | `opencode/nemotron-3.5-super-vl-free` | 34/34 | 205 s | 6/6 | NVIDIA ghi log; "không gửi dữ liệu cá nhân hay bí mật" |
+| — | `opencode/mimo-v2.6-flash-free` | 34/34 | 383 s | 6/6 | Có thể huấn luyện |
+| — | `opencode/flint-40b-free` | 34/34 | 399 s | không | Có thể huấn luyện, lưu 30 ngày |
+
+Không dùng: `glm-5.3-flash-free` và `nemotron-3.5-lightning-free` (chạy xong mà không
+ghi file nào), `iceman-free` (lỗi từ máy chủ). `minimax-m3.1-flash-free` đã biến khỏi
+danh sách.
+
+**Có dùng vô hạn được không: không chắc, đừng tính là vô hạn.** Trang Models của
+opencode (đọc ngày 2026-11-17) ghi mọi model miễn phí là "free for a limited time", tức
+có thể bị rút bất kỳ lúc nào, và chỉ nêu con số giới hạn cho LongCat (100 lượt/ngày).
+Các model khác không ghi số, nhưng người dùng có báo bị chặn tốc độ. Mỗi model là một
+hạn mức riêng, nên khi một model báo giới hạn thì chuyển sang model khác trong bảng.
+
+**Kết quả làm việc thật (2026-11-17, vòng 2 của AgentwatchUI), đáng tin hơn bài đo:**
+
+- `hy4-flash-free`: dựng lại góc trưởng phòng (4 file, 10 test) trong 6 phút, rồi vẽ
+  lại toàn bộ đồ đạc pixel art trong 4 phút và sửa đúng 6 lời chê ở vòng hai. Đây là
+  worker miễn phí tốt nhất hiện có, kể cả cho đồ họa.
+- `beam-free`: làm phần hạn mức ở backend (5 file, đọc đúng múi giờ) trong 9 phút và
+  phần HUD trong 5 phút, cả hai qua kiểm ngay lần đầu.
+- `deepseek-v4.1-flash-free`: đọc brief và các file rồi **dừng, không sửa gì, mã thoát
+  0**, sau 6,5 phút. Đừng giao việc dài cho nó cho tới khi đo lại.
+
+**Một lần đo chỉ là một mẫu.** Bài code của model miễn phí mới đo một lần; trước khi
+giao việc lớn, đo lại model đó với `orchestra/bench/run-bench.sh`.
+
+**Tự chuyển:** `run-worker.sh` thấy dòng `exceeded the 5-hour usage quota` trong log thì
+tự chạy lại brief đó với chức vụ `free-<chức vụ>` (hoặc `WORKER_FALLBACK=<chức vụ>`), báo
+rõ trong đầu ra. Worker mới không nhớ phiên cũ, nhưng thấy được các file dở dang.
+Tắt bằng `WORKER_FALLBACK=none`.
 
 Nguyên tắc xếp:
 
@@ -50,8 +131,8 @@ Nguyên tắc xếp:
   ảnh" đạt. `ark-code-latest` và `deepseek-v4-pro` trả lời `CANNOT SEE` khi được đưa ảnh.
 - Người kiểm (`qa`) phải là model **khác họ** với người viết. Đừng để một model tự chấm
   bài của nó.
-- Model miễn phí của `opencode/*` có thể dùng dữ liệu gửi lên để huấn luyện. Chỉ dùng
-  cho việc không nhạy cảm.
+- Một số model miễn phí dùng dữ liệu gửi lên để huấn luyện (cột "Dữ liệu" ở 2.1). Với
+  mã hay tài liệu riêng tư, chỉ dùng các model ghi "không huấn luyện".
 
 **Không dùng được** (đã thử):
 
@@ -238,6 +319,9 @@ node bin/aw.js review --done
   File dở dang vẫn nằm trên đĩa: kiểm tra nó chạy được không rồi mới quyết. Việc còn lại
   thì giao cho `reserve` (`opencode/big-pickle`, miễn phí, không có mắt), tự làm, hoặc
   chờ tới giờ mở lại. Đừng đo lại model khi hạn mức đang thấp: bài đo tốn token thật.
+- **Mã thoát 0 không có nghĩa là đã làm.** Một worker đã đọc brief rồi dừng mà không
+  sửa file nào. `run-worker.sh` giờ in `WARNING no report block` và trả mã 3 khi log
+  không có dòng `STATUS:`. Thấy cảnh báo này: xem `git status`, rồi giao lại cho model khác.
 - **Model treo im lặng** (hai bản GLM): log chỉ có dòng `> build · <model>` rồi đứng.
 - **Bash của Claude Code đổi `>nul` thành `>/dev/null`** khi viết file `.bat` bằng
   `printf`/heredoc. Viết file `.bat` bằng công cụ Write.
@@ -267,3 +351,31 @@ bash orchestra/bench/run-bench.sh byteplus/<model-mới> [model khác...]
 In ra điểm code trên 34, số giây, và câu trả lời của bài nhìn ảnh để bạn tự chấm
 (đáp án ở đầu `orchestra/bench/vision_prompt.txt`). Điểm code dưới 33 thì không giao
 logic. Không trả lời được bài ảnh thì không giao việc phải nhìn.
+
+## 10. Dự án đang ở đâu (cập nhật khi kết thúc phiên)
+
+*Cập nhật 2026-11-17, cuối phiên của Fable.*
+
+**AgentwatchUI** (`D:\DungHA\AgentwatchUI`, github.com/Acakua/AgentwatchUI):
+
+- Chạy được với dữ liệu thật, 24 test qua. Vòng 1 (B1 đến B5) dựng nền; vòng 2 (C1 đến
+  C4) thêm giờ hồi hạn mức, bàn máy tính riêng cho từng model Claude, đồ đạc vẽ lại.
+- Hợp đồng: `docs/SPEC.md` (mục 9 là phần thêm của vòng 2). Sửa hợp đồng trước, rồi
+  mới viết brief.
+- Trong roster, Opus là trưởng phòng, Fable là "Tiền nhiệm". Khi Fable không còn hoạt
+  động trong 24 giờ thì vẫn hiện vì có trong roster; xóa mục đó khỏi
+  `config/roster.json` nếu người dùng muốn.
+- Việc còn mở:
+  1. Hàng ghế chờ chật khi có hơn 16 model; model "khách" rảnh đã ẩn bảng tên.
+  2. Chưa hiện phần trăm hạn mức đã dùng (không có trong dữ liệu trên máy); chỉ hiện
+     được lúc bị chặn và giờ hồi.
+  3. `start.bat` chưa được người dùng xác nhận chạy trên máy họ.
+  4. Nhân vật do Fable vẽ bằng tay (`drawCharacter`); nếu muốn đẹp hơn, giao cho
+     `free-art` theo mẫu `briefs/C2-art-props.md`, đính `chars.png`.
+
+**Game1** (`D:\DungHA\Game1`): backlog ở `production/creature-lab-backlog.md`. Việc
+kế tiếp là S2 (bộ sinh đọc CreatureSpec). Chưa có brief: viết
+`production/briefs/S2a-creature-spec.md` theo mục 4.3, lấy lược đồ từ
+`design/creature-lab-spec.md` mục 2, rồi
+`bash tools/orchestra/run-worker.sh coder production/briefs/S2a-creature-spec.md`.
+
